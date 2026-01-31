@@ -116,7 +116,14 @@ install_dependencies() {
     PACKAGES="git"
     
     if [ "$SERVER_MODE" = false ]; then
-        PACKAGES="$PACKAGES chromium-browser unclutter xdotool x11-xserver-utils"
+        # Note: Package is 'chromium' on Raspberry Pi OS Bookworm+, 'chromium-browser' on older versions
+        # Try chromium first (newer), fall back to chromium-browser (older)
+        PACKAGES="$PACKAGES unclutter xdotool x11-xserver-utils"
+        if apt-cache show chromium &>/dev/null; then
+            PACKAGES="$PACKAGES chromium"
+        else
+            PACKAGES="$PACKAGES chromium-browser"
+        fi
     fi
     
     sudo apt-get install -y -qq $PACKAGES
@@ -205,7 +212,14 @@ while ! curl -s http://localhost:3000/api/health > /dev/null; do
 done
 
 # Launch Chromium in kiosk mode
-chromium-browser \
+# Use 'chromium' on newer Pi OS, 'chromium-browser' on older
+if command -v chromium &> /dev/null; then
+    CHROME_CMD="chromium"
+else
+    CHROME_CMD="chromium-browser"
+fi
+
+$CHROME_CMD \
     --kiosk \
     --noerrdialogs \
     --disable-infobars \
@@ -264,7 +278,7 @@ EOF
     cat > "$INSTALL_DIR/stop.sh" << EOF
 #!/bin/bash
 sudo systemctl stop ${SERVICE_NAME}
-pkill -f chromium-browser 2>/dev/null || true
+pkill -f chromium 2>/dev/null || true
 pkill -f unclutter 2>/dev/null || true
 echo "OpenHamClock stopped"
 EOF
