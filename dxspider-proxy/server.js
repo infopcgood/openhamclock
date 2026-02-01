@@ -369,6 +369,7 @@ app.get('/api/stats', (req, res) => {
     else if (freq >= 18068 && freq <= 18168) band = '17m';
     else if (freq >= 21000 && freq <= 21450) band = '15m';
     else if (freq >= 24890 && freq <= 24990) band = '12m';
+    else if (freq >= 26500 && freq <= 27500) band = '11m';  // CB band
     else if (freq >= 28000 && freq <= 29700) band = '10m';
     else if (freq >= 50000 && freq <= 54000) band = '6m';
     

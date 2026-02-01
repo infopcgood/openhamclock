@@ -47,6 +47,7 @@ const HF_BANDS = {
   '17m': 18.1,
   '15m': 21.1,
   '12m': 24.9,
+  '11m': 27.0,    // CB band (26.965-27.405 MHz)
   '10m': 28.1
   // Note: 6m (50 MHz) excluded - outside P.533 HF range (2-30 MHz)
 };
