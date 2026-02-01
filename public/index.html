@@ -2147,7 +2147,7 @@
     // ============================================
     // LEAFLET MAP COMPONENT
     // ============================================
-    const WorldMap = ({ deLocation, dxLocation, onDXChange, potaSpots, mySpots, dxPaths, dxFilters, satellites, showDXPaths, showPOTA, showSatellites, onToggleSatellites }) => {
+    const WorldMap = ({ deLocation, dxLocation, onDXChange, potaSpots, mySpots, dxPaths, dxFilters, satellites, showDXPaths, showDXLabels, onToggleDXLabels, showPOTA, showSatellites, onToggleSatellites }) => {
       const mapRef = useRef(null);
       const mapInstanceRef = useRef(null);
       const tileLayerRef = useRef(null);
@@ -2475,7 +2475,7 @@
               })
                 .bindPopup(dxPopupContent)
                 .bindTooltip(path.dxCall, { 
-                  permanent: false, 
+                  permanent: showDXLabels, 
                   direction: 'top', 
                   offset: [0, -8],
                   className: 'dx-tooltip'
@@ -2494,7 +2494,7 @@
               })
                 .bindPopup(spotterPopupContent)
                 .bindTooltip(path.spotter, { 
-                  permanent: false, 
+                  permanent: showDXLabels, 
                   direction: 'top', 
                   offset: [0, -6],
                   className: 'dx-tooltip'
@@ -2507,7 +2507,7 @@
             }
           });
         }
-      }, [dxPaths, dxFilters, showDXPaths]);
+      }, [dxPaths, dxFilters, showDXPaths, showDXLabels]);
 
       // Update POTA markers
       useEffect(() => {
@@ -2676,6 +2676,33 @@
               title={showSatellites ? 'Hide satellites' : 'Show satellites'}
             >
               🛰 SAT {showSatellites ? 'ON' : 'OFF'}
+            </button>
+          )}
+          
+          {/* Labels toggle button */}
+          {onToggleDXLabels && showDXPaths && (
+            <button
+              onClick={onToggleDXLabels}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                left: '145px',
+                background: showDXLabels ? 'rgba(255, 170, 0, 0.2)' : 'rgba(0, 0, 0, 0.8)',
+                border: `1px solid ${showDXLabels ? '#ffaa00' : '#666'}`,
+                color: showDXLabels ? '#ffaa00' : '#888',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontFamily: 'JetBrains Mono',
+                cursor: 'pointer',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title={showDXLabels ? 'Hide callsign labels (hover to see)' : 'Show callsign labels'}
+            >
+              🏷️ CALLS {showDXLabels ? 'ON' : 'OFF'}
             </button>
           )}
           
@@ -4057,6 +4084,8 @@
               dxFilters={dxFilters}
               satellites={satellites.positions}
               showDXPaths={mapLayers.showDXPaths}
+              showDXLabels={mapLayers.showDXLabels}
+              onToggleDXLabels={toggleDXLabels}
               showPOTA={mapLayers.showPOTA}
               showSatellites={mapLayers.showSatellites}
               onToggleSatellites={toggleSatellites}
@@ -4705,9 +4734,9 @@
       const [mapLayers, setMapLayers] = useState(() => {
         try {
           const stored = localStorage.getItem('openhamclock_mapLayers');
-          const defaults = { showDXPaths: true, showPOTA: true, showSatellites: true };
+          const defaults = { showDXPaths: true, showDXLabels: true, showPOTA: true, showSatellites: true };
           return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
-        } catch (e) { return { showDXPaths: true, showPOTA: true, showSatellites: true }; }
+        } catch (e) { return { showDXPaths: true, showDXLabels: true, showPOTA: true, showSatellites: true }; }
       });
       
       // Save map layer preferences when changed
@@ -4719,6 +4748,7 @@
       
       // Toggle handlers for map layers
       const toggleDXPaths = useCallback(() => setMapLayers(prev => ({ ...prev, showDXPaths: !prev.showDXPaths })), []);
+      const toggleDXLabels = useCallback(() => setMapLayers(prev => ({ ...prev, showDXLabels: !prev.showDXLabels })), []);
       const togglePOTA = useCallback(() => setMapLayers(prev => ({ ...prev, showPOTA: !prev.showPOTA })), []);
       const toggleSatellites = useCallback(() => setMapLayers(prev => ({ ...prev, showSatellites: !prev.showSatellites })), []);
       
@@ -5078,6 +5108,8 @@
               dxFilters={dxFilters}
               satellites={satellites.positions}
               showDXPaths={mapLayers.showDXPaths}
+              showDXLabels={mapLayers.showDXLabels}
+              onToggleDXLabels={toggleDXLabels}
               showPOTA={mapLayers.showPOTA}
               showSatellites={mapLayers.showSatellites}
               onToggleSatellites={toggleSatellites}
