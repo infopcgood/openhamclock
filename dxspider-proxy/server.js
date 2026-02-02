@@ -19,12 +19,13 @@ app.use(express.json());
 const CONFIG = {
   // DX Spider nodes to try (in order)
   nodes: [
+    { host: 'dxspider.co.uk', port: 7300, name: 'DX Spider UK (G6NHU)' },
     { host: 'dxc.nc7j.com', port: 7373, name: 'NC7J' },
     { host: 'dxc.ai9t.com', port: 7373, name: 'AI9T' },
-    { host: 'dxc.w6cua.org', port: 7300, name: 'W6CUA' },
-    { host: 'spider.ham-radio-deluxe.com', port: 8000, name: 'HRD' }
+    { host: 'dxc.w6cua.org', port: 7300, name: 'W6CUA' }
   ],
-  callsign: process.env.CALLSIGN || 'OPENHAMCLOCK',
+  // Callsign with SSID -56 for OpenHamClock (HamClock uses -55)
+  callsign: (process.env.CALLSIGN || 'OPENHAMCLOCK') + '-56',
   spotRetentionMs: 30 * 60 * 1000, // 30 minutes
   reconnectDelayMs: 10000, // 10 seconds between reconnect attempts
   maxReconnectAttempts: 3,
@@ -201,7 +202,7 @@ const connect = () => {
   log('CONNECT', `Attempting connection to ${node.name} (${node.host}:${node.port})`);
   
   client = new net.Socket();
-  client.setTimeout(30000);
+  client.setTimeout(60000); // 60 second timeout
   
   client.connect(node.port, node.host, () => {
     connected = true;
@@ -216,6 +217,23 @@ const connect = () => {
       if (client && connected) {
         client.write(CONFIG.callsign + '\r\n');
         log('AUTH', `Sent callsign: ${CONFIG.callsign}`);
+        
+        // After login, enable DX spot announcements
+        setTimeout(() => {
+          if (client && connected) {
+            // Request recent spots first
+            client.write('sh/dx 30\r\n');
+            log('CMD', 'Sent: sh/dx 30');
+            
+            // Then enable the spot stream (some nodes need this)
+            setTimeout(() => {
+              if (client && connected) {
+                client.write('set/dx\r\n');
+                log('CMD', 'Sent: set/dx (enable spot stream)');
+              }
+            }, 2000);
+          }
+        }, 2000);
       }
     }, 1000);
     

@@ -562,12 +562,15 @@ app.get('/api/dxcluster/spots', async (req, res) => {
   
   // Helper function for DX Spider (telnet-based, works locally/Pi)
   // Multiple nodes for failover
+  // DX Spider nodes - dxspider.co.uk primary per G6NHU
+  // SSID -56 for OpenHamClock (HamClock uses -55)
   const DXSPIDER_NODES = [
+    { host: 'dxspider.co.uk', port: 7300 },
     { host: 'dxc.nc7j.com', port: 7373 },
     { host: 'dxc.ai9t.com', port: 7373 },
-    { host: 'dxc.w6cua.org', port: 7300 },
-    { host: 'spider.ham-radio-deluxe.com', port: 8000 }
+    { host: 'dxc.w6cua.org', port: 7300 }
   ];
+  const DXSPIDER_SSID = '-56'; // OpenHamClock SSID
   
   async function fetchDXSpider() {
     // Check cache first (use longer cache to reduce connection attempts)
@@ -754,7 +757,7 @@ app.get('/api/dxcluster/sources', (req, res) => {
     { id: 'auto', name: 'Auto (Best Available)', description: 'Tries Proxy first, then HamQTH, then direct telnet' },
     { id: 'proxy', name: 'DX Spider Proxy ⭐', description: 'Our dedicated proxy service - real-time telnet feed via HTTP' },
     { id: 'hamqth', name: 'HamQTH', description: 'HamQTH.com CSV feed (HTTP, works everywhere)' },
-    { id: 'dxspider', name: 'DX Spider Direct', description: 'Direct telnet to DX cluster (works locally/Pi only)' }
+    { id: 'dxspider', name: 'DX Spider Direct', description: 'Direct telnet to dxspider.co.uk (G6NHU) - works locally/Pi' }
   ]);
 });
 
