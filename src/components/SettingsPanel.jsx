@@ -22,8 +22,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
       setTheme(config.theme || 'dark');
       setLayout(config.layout || 'modern');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
-      // Calculate grid from coordinates
-      if (config.location?.lat && config.location?.lon) {
+      // Use locator from config, or calculate from coordinates
+      if (config.locator) {
+        setGridSquare(config.locator);
+      } else if (config.location?.lat && config.location?.lon) {
         setGridSquare(calculateGridSquare(config.location.lat, config.location.lon));
       }
     }
@@ -93,6 +95,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
     onSave({
       ...config,
       callsign: callsign.toUpperCase(),
+      locator: gridSquare.toUpperCase(),
       location: { lat: parseFloat(lat), lon: parseFloat(lon) },
       theme,
       layout,
@@ -140,13 +143,36 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
         <h2 style={{ 
           color: 'var(--accent-cyan)', 
           marginTop: 0,
-          marginBottom: '24px',
+          marginBottom: '16px',
           textAlign: 'center',
           fontFamily: 'Orbitron, monospace',
           fontSize: '20px'
         }}>
           ⚙ Station Settings
         </h2>
+
+        {/* First-time setup banner */}
+        {(config?.configIncomplete || config?.callsign === 'N0CALL' || !config?.locator) && (
+          <div style={{
+            background: 'rgba(255, 193, 7, 0.15)',
+            border: '1px solid var(--accent-amber)',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            fontSize: '13px'
+          }}>
+            <div style={{ color: 'var(--accent-amber)', fontWeight: '700', marginBottom: '6px' }}>
+              👋 Welcome to OpenHamClock!
+            </div>
+            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Please enter your callsign and grid square to get started. 
+              Your settings will be saved in your browser.
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '8px' }}>
+              💡 Tip: For permanent config, copy <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '3px' }}>.env.example</code> to <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '3px' }}>.env</code> and set CALLSIGN and LOCATOR
+            </div>
+          </div>
+        )}
 
         {/* Callsign */}
         <div style={{ marginBottom: '20px' }}>

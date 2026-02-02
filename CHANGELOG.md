@@ -2,247 +2,94 @@
 
 All notable changes to OpenHamClock will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Planned
-- SOTA API integration
-- WebSocket DX cluster connection
-- Azimuthal equidistant projection option
-
-## [3.9.0] - 2026-02-01
+## [3.10.0] - 2025-02-02
 
 ### Added
-- **Hybrid Propagation System** - Best-of-both-worlds HF prediction
-  - Combines ITURHFProp (ITU-R P.533-14) base predictions with real-time ionosonde corrections
-  - Automatic fallback to built-in calculations when ITURHFProp unavailable
-  - Configurable via `ITURHFPROP_URL` environment variable
-- **ITURHFProp Service** - Deployable microservice for ITU-R P.533-14 predictions
-  - REST API wrapper around ITURHFProp engine
-  - Docker/Railway deployable
-  - Endpoints: `/api/predict`, `/api/predict/hourly`, `/api/bands`, `/api/health`
-- **Ionospheric Correction Factor** - Adjusts model predictions based on actual conditions
-  - Compares expected foF2 (from model) vs actual foF2 (from ionosonde)
-  - Applies geomagnetic (K-index) penalties
-  - Reports correction confidence (high/medium/low)
+- **Environment-based configuration** - Station settings now stored in `.env` file
+  - `.env` is auto-created from `.env.example` on first run
+  - Settings won't be overwritten by git updates
+  - Supports: CALLSIGN, LOCATOR, PORT, HOST, UNITS, TIME_FORMAT, THEME, LAYOUT
+- **Update script** - Easy updates for local/Pi installations (`./scripts/update.sh`)
+  - Backs up config, pulls latest, rebuilds, preserves settings
+- **Network access configuration** - Set `HOST=0.0.0.0` to access from other devices
+- **Grid locator auto-conversion** - Automatically calculates lat/lon from LOCATOR
+- **Setup wizard** - Settings panel auto-opens if CALLSIGN or LOCATOR is missing
+- **Retro theme** - 90s Windows style with teal background and silver panels
+- **Classic layout** - Original HamClock-style with black background, large colored numbers, rainbow frequency bar
 
 ### Changed
-- Propagation API now reports hybrid mode status
-- Response includes `model` field indicating prediction source
-- Added `hybrid` object to propagation response with correction details
-
-### Technical
-- New functions: `fetchITURHFPropPrediction()`, `applyHybridCorrection()`, `calculateIonoCorrection()`
-- 5-minute cache for ITURHFProp predictions
-- Graceful degradation when services unavailable
-
-## [3.8.0] - 2026-01-31
-
-### Added
-- **DX Cluster Paths on Map** - Visual lines connecting spotters to DX stations
-  - Band-specific colors: 160m (red), 80m (orange), 40m (yellow), 20m (green), 15m (cyan), 10m (purple), 6m (magenta)
-  - Toggle visibility with button in DX Cluster panel
-  - Click paths to see spot details
-- **Hover Highlighting** - Hover over spots in DX list to highlight path on map
-  - Path turns white and thickens when hovered
-  - Circle markers pulse on hover
-- **Grid Square Extraction** - Parse grid squares from DX cluster comments
-  - Supports "Grid: XX00xx" format in spot comments
-  - Shows grid in spot popups on map
-- **Callsign Labels on Map** - Optional labels for DX stations and spotters
-  - Toggle with label button in DX Cluster panel
-- **Moon Tracking** - Real-time sublunar point on map
-  - Shows current moon phase emoji
-  - Updates position and phase in real-time
-
-### Changed
-- Improved DX path rendering with antimeridian crossing support
-- Better popup formatting with grid square display
-- Enhanced spot filtering works on map paths too
-
-## [3.7.0] - 2026-01-31
-
-### Added
-- **DX Spider Proxy Service** - Dedicated server for DX cluster data
-  - Real-time Telnet connection to DX Spider nodes
-  - WebSocket distribution to multiple clients
-  - Grid square parsing from spot comments
-  - Fallback to HTTP APIs when Telnet unavailable
-- **Spotter Location Mapping** - Show where spots originate from
-  - Circle markers for spotters with callsign popups
-  - Lines connecting spotter to DX station
-- **Map Layer Controls** - Toggle various map overlays
-  - POTA activators toggle
-  - DX cluster paths toggle
-  - Satellite footprints toggle (placeholder)
-
-### Technical
-- New `/api/dxcluster-paths` endpoint returns enriched spot data
-- Grid-to-coordinate conversion for spotter locations
-- Improved caching for DX cluster data
-
-## [3.6.0] - 2026-01-31
-
-### Added
-- **Real-Time Ionosonde Data Integration** - Enhanced propagation predictions using actual ionospheric measurements
-  - Fetches real-time foF2, MUF(3000), hmF2 data from KC2G/GIRO ionosonde network (~100 stations worldwide)
-  - Inverse distance weighted interpolation for path midpoint ionospheric parameters
-  - 10-minute data cache with automatic refresh
-  - New `/api/ionosonde` endpoint to access raw station data
-
-### Changed
-- **ITU-R P.533-based MUF Calculation** - More accurate Maximum Usable Frequency estimation
-  - Uses real foF2 and M(3000)F2 values when available
-  - Distance-scaled MUF calculation for varying path lengths
-  - Fallback to solar index estimation when ionosonde data unavailable
-- **Improved LUF Calculation** - Better Lowest Usable Frequency (D-layer absorption) model
-  - Accounts for solar zenith angle, solar flux, and geomagnetic activity
-  - Day/night variation with proper diurnal profile
-- **Enhanced Reliability Algorithm** - ITU-R P.533 inspired reliability calculations
-  - Optimum Working Frequency (OWF) centered predictions
-  - Multi-hop path loss consideration
-  - Polar path and auroral absorption penalties
-  - Low-band nighttime enhancement
-
-### UI Improvements
-- Propagation panel shows MUF and LUF values in MHz
-- Data source indicator (📡 ionosonde name vs ⚡ estimated)
-- Green dot indicator when using real ionosonde data
-- foF2 value displayed when available (replaces SSN in bar view)
-- Distance now shown in km (not Kkm)
-
-### Technical
-- New `fetchIonosondeData()` function with caching
-- `interpolateFoF2()` for spatial interpolation of ionospheric parameters
-- `calculateMUF()` and `calculateLUF()` helper functions
-- `calculateEnhancedReliability()` with proper diurnal scaling
-
-## [3.3.0] - 2026-01-30
-
-### Added
-- **Contest Calendar** - Shows upcoming and active ham radio contests
-  - Integrates with WA7BNM Contest Calendar API
-  - Fallback calculation for major recurring contests (CQ WW, ARRL, etc.)
-  - Weekly mini-contests (CWT, SST, NCCC Sprint)
-  - Active contest highlighting with blinking indicator
-- **Classic Layout** - New layout option inspired by original HamClock
-  - Side panels for DE/DX info, DX cluster, contests
-  - Large centered map
-  - Compact data-dense design
-- **Theme System** - Three visual themes
-  - 🌙 Dark (default) - Modern dark theme with amber/cyan accents
-  - ☀️ Light - Bright theme for daytime use
-  - 📟 Legacy - Classic green-on-black CRT style
-- **Quick Stats Panel** - Overview of active contests, POTA activators, DX spots
-- **4-column modern layout** - Improved data organization
-- **Settings persistence** - Theme and layout saved to localStorage
-
-### Changed
-- Modern layout now uses 4-column grid for better information density
-- Improved DX cluster API with multiple fallback sources
-- Settings panel now includes theme and layout selection
-
-## [3.2.0] - 2026-01-30
-
-### Added
-- Theme support (dark, light, legacy)
-- Layout selection in settings
-- Real-time theme preview in settings
-
-## [3.1.0] - 2026-01-30
-
-### Added
-- User settings panel with callsign and location configuration
-- Grid square entry with automatic lat/lon conversion
-- Browser geolocation support ("Use My Current Location")
-- Settings saved to localStorage
+- Configuration priority: localStorage > .env > defaults
+- Server startup now shows station callsign and network access info
+- Settings panel updated with .env setup instructions
+- DX Spider connection uses dxspider.co.uk as primary (thanks Keith G6NHU)
+- SSID -56 for OpenHamClock connections (HamClock uses -55)
 
 ### Fixed
-- DX cluster now uses server proxy only (no CORS errors)
-- Improved DX cluster API reliability with multiple sources
+- Header clock "shaking" when digits change - now uses monospace font
+- Header layout wrapping on smaller screens - added `whiteSpace: nowrap`
+- Reduced log spam with rate-limited error logging (1 per minute per type)
+- DX Spider connection errors silenced for common issues (ECONNRESET, ETIMEDOUT)
 
-## [3.0.0] - 2026-01-30
+## [3.9.0] - 2025-01-31
 
 ### Added
-- **Real map tiles** via Leaflet.js - no more approximated shapes!
-- **8 map styles**: Dark, Satellite, Terrain, Streets, Topo, Ocean, NatGeo, Gray
-- **Interactive map** - click anywhere to set DX location
-- **Day/night terminator** using Leaflet.Terminator plugin
-- **Great circle path** visualization between DE and DX
-- **POTA activators** displayed on map with callsigns
-- **Express server** with API proxy for CORS-free data fetching
-- **Electron desktop app** support for Windows, macOS, Linux
-- **Docker support** with multi-stage build
-- **Railway deployment** configuration
-- **Raspberry Pi setup script** with kiosk mode option
-- **Cross-platform install scripts** (Linux, macOS, Windows)
-- **GitHub Actions CI/CD** pipeline
+- DX Filter modal with tabs for Zones, Bands, Modes, Watchlist, Exclude
+- Spot retention time configurable (5-30 minutes) in Settings
+- Satellite tracking with 40+ amateur radio satellites
+- Satellite footprints and orbit path visualization
+- Map legend showing all 10 HF bands plus DE/DX/Sun/Moon markers
 
 ### Changed
-- Complete rewrite of map rendering using Leaflet.js
-- Improved responsive layout for different screen sizes
-- Better error handling for API failures
-- Cleaner separation of frontend and backend
+- Enlarged Header, DE, and DX panels with bigger fonts
+- Improved callsign label positioning on map
 
 ### Fixed
-- CORS issues with external APIs now handled by server proxy
-- Map projection accuracy improved
+- DX Filter modal crash when opening
+- K-Index display showing correct values
+- Contest calendar attribution
 
-## [2.0.0] - 2026-01-29
+## [3.8.0] - 2025-01-28
 
 ### Added
-- Live API integrations for NOAA space weather
-- POTA API integration for activator spots
-- Band conditions from HamQSL (XML parsing)
-- DX cluster spot display
-- Realistic continent shapes (SVG paths)
-- Great circle path calculations
-- Interactive map (click to set DX)
+- Multiple DX cluster source fallbacks
+- ITURHFProp hybrid propagation predictions
+- Ionosonde real-time corrections
 
 ### Changed
-- Improved space weather display with color coding
-- Better visual hierarchy in panels
+- DX cluster cache extended to 90 seconds
+- Improved error handling for external APIs
 
-## [1.0.0] - 2026-01-29
+## [3.7.0] - 2025-01-25
 
 ### Added
-- Initial release
-- World map with day/night terminator
-- UTC and local time display
-- DE/DX location panels with grid squares
-- Short path / Long path bearing calculations
-- Distance calculations
-- Sunrise/sunset calculations
-- Space weather panel (mock data)
-- Band conditions panel
-- DX cluster panel (mock data)
-- POTA activity panel (mock data)
-- Responsive grid layout
-- Dark theme with amber/green accents
+- Modular React architecture with Vite
+- 13 extracted components
+- 12 custom data-fetching hooks
+- 3 utility modules
+- Railway deployment support
+- Docker support
 
-### Acknowledgments
-- Created in memory of Elwood Downey, WB0OEW
-- Inspired by the original HamClock
+### Changed
+- Complete rewrite from monolithic HTML to modular React
+- CSS variables for theming
+- Separated concerns for easier contribution
+
+## [3.0.0] - 2025-01-15
+
+### Added
+- Initial modular extraction from monolithic codebase
+- React + Vite build system
+- Express backend for API proxying
+- Three themes: Dark, Light, Legacy
 
 ---
 
-## Version History Summary
+## Version History
 
-| Version | Date | Highlights |
-|---------|------|------------|
-| 3.9.0 | 2026-02-01 | Hybrid propagation (ITURHFProp + ionosonde) |
-| 3.8.0 | 2026-01-31 | DX paths on map, hover highlights, moon tracking |
-| 3.7.0 | 2026-01-31 | DX Spider proxy, spotter locations, map toggles |
-| 3.6.0 | 2026-01-31 | Real-time ionosonde data, ITU-R P.533 propagation |
-| 3.3.0 | 2026-01-30 | Contest calendar, classic layout, themes |
-| 3.2.0 | 2026-01-30 | Theme system (dark/light/legacy) |
-| 3.1.0 | 2026-01-30 | User settings, DX cluster fixes |
-| 3.0.0 | 2026-01-30 | Real maps, Electron, Docker, Railway |
-| 2.0.0 | 2026-01-29 | Live APIs, improved map |
-| 1.0.0 | 2026-01-29 | Initial release |
-
----
-
-*73 de OpenHamClock contributors*
+- **3.10.x** - Environment configuration, themes, layouts
+- **3.9.x** - DX filtering, satellites, map improvements
+- **3.8.x** - Propagation predictions, reliability improvements
+- **3.7.x** - Modular React architecture
+- **3.0.x** - Initial modular version
+- **2.x** - Monolithic HTML version (archived)
+- **1.x** - Original HamClock fork

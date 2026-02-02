@@ -140,12 +140,18 @@ setup_repository() {
         git pull
     else
         echo "Cloning repository..."
-        git clone https://github.com/accius/openhamclock.git "$INSTALL_DIR"
+        git clone https://github.com/k0cjh/openhamclock.git "$INSTALL_DIR"
         cd "$INSTALL_DIR"
     fi
     
     # Install npm dependencies
-    npm install --production
+    npm install
+    
+    # Build frontend for production
+    npm run build
+    
+    # Make update script executable
+    chmod +x scripts/update.sh 2>/dev/null || true
     
     echo -e "${GREEN}✓ OpenHamClock installed to $INSTALL_DIR${NC}"
 }
@@ -317,10 +323,11 @@ print_summary() {
     echo -e "  ${BLUE}Web Interface:${NC} http://localhost:3000"
     echo ""
     echo -e "  ${YELLOW}Helper Commands:${NC}"
-    echo "    $INSTALL_DIR/start.sh    - Start server manually"
-    echo "    $INSTALL_DIR/stop.sh     - Stop everything"
-    echo "    $INSTALL_DIR/restart.sh  - Restart server"
-    echo "    $INSTALL_DIR/status.sh   - Check status"
+    echo "    $INSTALL_DIR/scripts/update.sh - Update to latest version"
+    echo "    $INSTALL_DIR/start.sh          - Start server manually"
+    echo "    $INSTALL_DIR/stop.sh           - Stop everything"
+    echo "    $INSTALL_DIR/restart.sh        - Restart server"
+    echo "    $INSTALL_DIR/status.sh         - Check status"
     echo ""
     echo -e "  ${YELLOW}Service Commands:${NC}"
     echo "    sudo systemctl start ${SERVICE_NAME}"

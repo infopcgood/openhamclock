@@ -39,16 +39,39 @@ import {
   loadConfig,
   saveConfig,
   applyTheme,
+  fetchServerConfig,
   calculateGridSquare,
   calculateSunTimes
 } from './utils';
 
 const App = () => {
-  // Configuration state
+  // Configuration state - initially use defaults, then load from server
   const [config, setConfig] = useState(loadConfig);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(Date.now());
   const [uptime, setUptime] = useState('0d 0h 0m');
+  
+  // Load server configuration on startup (only matters for first-time users)
+  useEffect(() => {
+    const initConfig = async () => {
+      // Fetch server config (provides defaults for new users without localStorage)
+      await fetchServerConfig();
+      
+      // Load config - localStorage takes priority over server config
+      const loadedConfig = loadConfig();
+      setConfig(loadedConfig);
+      setConfigLoaded(true);
+      
+      // Only show settings if user has no saved config AND no valid callsign
+      // This prevents the popup from appearing every refresh
+      const hasLocalStorage = localStorage.getItem('openhamclock_config');
+      if (!hasLocalStorage && loadedConfig.callsign === 'N0CALL') {
+        setShowSettings(true);
+      }
+    };
+    initConfig();
+  }, []);
   
   // DX Location with localStorage persistence
   const [dxLocation, setDxLocation] = useState(() => {
@@ -129,15 +152,12 @@ const App = () => {
     applyTheme(config.theme || 'dark');
   }, []);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('openhamclock_config');
-    if (!saved) setShowSettings(true);
-  }, []);
-
+  // Config save handler - persists to localStorage
   const handleSaveConfig = (newConfig) => {
     setConfig(newConfig);
     saveConfig(newConfig);
     applyTheme(newConfig.theme || 'dark');
+    console.log('[Config] Saved to localStorage:', newConfig.callsign);
   };
 
   // Data hooks

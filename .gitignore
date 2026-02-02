@@ -62,6 +62,7 @@ temp/
 # Config files that might contain secrets
 config.local.js
 config.local.json
+config.json
 
 # Test files
 *.test.js.snap

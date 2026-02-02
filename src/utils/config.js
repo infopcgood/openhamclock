@@ -1,14 +1,25 @@
 /**
  * Configuration Utilities
  * Handles app configuration, localStorage persistence, and theme management
+ * 
+ * Configuration priority:
+ * 1. localStorage (user's browser settings)
+ * 2. Server config (from .env file)
+ * 3. Default values
  */
 
 export const DEFAULT_CONFIG = {
   callsign: 'N0CALL',
+  locator: '',
   location: { lat: 40.0150, lon: -105.2705 }, // Boulder, CO (default)
   defaultDX: { lat: 35.6762, lon: 139.6503 }, // Tokyo
+  units: 'imperial', // 'imperial' or 'metric'
   theme: 'dark', // 'dark', 'light', 'legacy', or 'retro'
-  layout: 'modern', // 'modern' or 'legacy'
+  layout: 'modern', // 'modern' or 'classic'
+  use12Hour: true,
+  showSatellites: true,
+  showPota: true,
+  showDxPaths: true,
   refreshIntervals: {
     spaceWeather: 300000,
     bandConditions: 300000,
@@ -18,20 +29,92 @@ export const DEFAULT_CONFIG = {
   }
 };
 
+// Cache for server config
+let serverConfig = null;
+
 /**
- * Load config from localStorage or use defaults
+ * Fetch configuration from server (.env file)
+ * This is called once on app startup
+ */
+export const fetchServerConfig = async () => {
+  try {
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      serverConfig = await response.json();
+      // Only log if server has real config (not defaults)
+      if (serverConfig.callsign && serverConfig.callsign !== 'N0CALL') {
+        console.log('[Config] Server config:', serverConfig.callsign, '@', serverConfig.locator);
+      }
+      return serverConfig;
+    }
+  } catch (e) {
+    console.warn('[Config] Could not fetch server config');
+  }
+  return null;
+};
+
+/**
+ * Load config - localStorage is the primary source of truth
+ * Server config only provides defaults for first-time users
  */
 export const loadConfig = () => {
+  // Start with defaults
+  let config = { ...DEFAULT_CONFIG };
+  
+  // Try to load from localStorage FIRST (user's saved settings)
+  let localConfig = null;
   try {
     const saved = localStorage.getItem('openhamclock_config');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_CONFIG, ...parsed };
+      localConfig = JSON.parse(saved);
+      console.log('[Config] Loaded from localStorage:', localConfig.callsign);
     }
   } catch (e) {
-    console.error('Error loading config:', e);
+    console.error('Error loading config from localStorage:', e);
   }
-  return DEFAULT_CONFIG;
+  
+  // If user has localStorage config, use it (this is the priority)
+  if (localConfig) {
+    config = {
+      ...config,
+      ...localConfig,
+      // Ensure nested objects are properly merged
+      location: localConfig.location || config.location,
+      defaultDX: localConfig.defaultDX || config.defaultDX,
+      refreshIntervals: { ...config.refreshIntervals, ...localConfig.refreshIntervals }
+    };
+  } 
+  // Only use server config if NO localStorage exists (first-time user)
+  else if (serverConfig) {
+    // Server config provides initial defaults for new users
+    // But only if they have real values (not N0CALL)
+    config = {
+      ...config,
+      callsign: (serverConfig.callsign && serverConfig.callsign !== 'N0CALL') 
+        ? serverConfig.callsign : config.callsign,
+      locator: serverConfig.locator || config.locator,
+      location: {
+        lat: serverConfig.latitude || config.location.lat,
+        lon: serverConfig.longitude || config.location.lon
+      },
+      defaultDX: {
+        lat: serverConfig.dxLatitude || config.defaultDX.lat,
+        lon: serverConfig.dxLongitude || config.defaultDX.lon
+      },
+      units: serverConfig.units || config.units,
+      theme: serverConfig.theme || config.theme,
+      layout: serverConfig.layout || config.layout,
+      use12Hour: serverConfig.timeFormat === '12',
+      showSatellites: serverConfig.showSatellites ?? config.showSatellites,
+      showPota: serverConfig.showPota ?? config.showPota,
+      showDxPaths: serverConfig.showDxPaths ?? config.showDxPaths
+    };
+  }
+  
+  // Mark if config needs setup (no callsign set anywhere)
+  config.configIncomplete = (config.callsign === 'N0CALL' || !config.locator);
+  
+  return config;
 };
 
 /**
@@ -40,9 +123,18 @@ export const loadConfig = () => {
 export const saveConfig = (config) => {
   try {
     localStorage.setItem('openhamclock_config', JSON.stringify(config));
+    console.log('[Config] Saved to localStorage');
   } catch (e) {
-    console.error('Error saving config:', e);
+    console.error('[Config] Error saving to localStorage:', e);
   }
+};
+
+/**
+ * Check if configuration is incomplete (show setup wizard)
+ */
+export const isConfigIncomplete = () => {
+  const config = loadConfig();
+  return config.callsign === 'N0CALL' || !config.locator;
 };
 
 /**
@@ -100,8 +192,10 @@ export const MAP_STYLES = {
 
 export default {
   DEFAULT_CONFIG,
+  fetchServerConfig,
   loadConfig,
   saveConfig,
+  isConfigIncomplete,
   applyTheme,
   MAP_STYLES
 };

@@ -1,5 +1,5 @@
 /**
- * OpenHamClock Server v3.9.0
+ * OpenHamClock Server v3.10.0
  * 
  * Express server that:
  * 1. Serves the static web application
@@ -7,15 +7,13 @@
  * 3. Provides hybrid HF propagation predictions (ITURHFProp + real-time ionosonde)
  * 4. Provides WebSocket support for future real-time features
  * 
- * Propagation Model: Hybrid ITU-R P.533-14
- * - ITURHFProp service provides base P.533-14 predictions
- * - KC2G/GIRO ionosonde network provides real-time corrections
- * - Combines both for best accuracy
+ * Configuration:
+ * - Copy .env.example to .env and customize
+ * - Environment variables override .env file
  * 
  * Usage:
  *   node server.js
  *   PORT=8080 node server.js
- *   ITURHFPROP_URL=https://your-service.railway.app node server.js
  */
 
 const express = require('express');
@@ -23,14 +21,147 @@ const cors = require('cors');
 const path = require('path');
 const fetch = require('node-fetch');
 const net = require('net');
+const fs = require('fs');
+
+// Auto-create .env from .env.example on first run
+const envPath = path.join(__dirname, '.env');
+const envExamplePath = path.join(__dirname, '.env.example');
+
+if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
+  fs.copyFileSync(envExamplePath, envPath);
+  console.log('[Config] Created .env from .env.example');
+  console.log('[Config] ⚠️  Please edit .env with your callsign and locator, then restart');
+}
+
+// Load .env file if it exists
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#')) {
+      const [key, ...valueParts] = trimmed.split('=');
+      const value = valueParts.join('=');
+      if (key && value !== undefined && !process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  });
+  console.log('[Config] Loaded configuration from .env file');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
+
+// ============================================
+// CONFIGURATION FROM ENVIRONMENT
+// ============================================
+
+// Convert Maidenhead grid locator to lat/lon
+function gridToLatLon(grid) {
+  if (!grid || grid.length < 4) return null;
+  
+  grid = grid.toUpperCase();
+  const lon = (grid.charCodeAt(0) - 65) * 20 - 180;
+  const lat = (grid.charCodeAt(1) - 65) * 10 - 90;
+  const lon2 = parseInt(grid[2]) * 2;
+  const lat2 = parseInt(grid[3]);
+  
+  let longitude = lon + lon2 + 1; // Center of grid
+  let latitude = lat + lat2 + 0.5;
+  
+  // 6-character grid for more precision
+  if (grid.length >= 6) {
+    const lon3 = (grid.charCodeAt(4) - 65) * (2/24);
+    const lat3 = (grid.charCodeAt(5) - 65) * (1/24);
+    longitude = lon + lon2 + lon3 + (1/24);
+    latitude = lat + lat2 + lat3 + (0.5/24);
+  }
+  
+  return { latitude, longitude };
+}
+
+// Get locator from env (support both LOCATOR and GRID_SQUARE)
+const locator = process.env.LOCATOR || process.env.GRID_SQUARE || '';
+
+// Also load config.json if it exists (for user preferences)
+let jsonConfig = {};
+const configJsonPath = path.join(__dirname, 'config.json');
+if (fs.existsSync(configJsonPath)) {
+  try {
+    jsonConfig = JSON.parse(fs.readFileSync(configJsonPath, 'utf8'));
+    console.log('[Config] Loaded user preferences from config.json');
+  } catch (e) {
+    console.error('[Config] Error parsing config.json:', e.message);
+  }
+}
+
+// Calculate lat/lon from locator if not explicitly set
+let stationLat = parseFloat(process.env.LATITUDE);
+let stationLon = parseFloat(process.env.LONGITUDE);
+
+if ((!stationLat || !stationLon) && locator) {
+  const coords = gridToLatLon(locator);
+  if (coords) {
+    stationLat = stationLat || coords.latitude;
+    stationLon = stationLon || coords.longitude;
+  }
+}
+
+// Fallback to config.json location if no env
+if (!stationLat && jsonConfig.location?.lat) stationLat = jsonConfig.location.lat;
+if (!stationLon && jsonConfig.location?.lon) stationLon = jsonConfig.location.lon;
+
+const CONFIG = {
+  // Station info (env takes precedence over config.json)
+  callsign: process.env.CALLSIGN || jsonConfig.callsign || 'N0CALL',
+  gridSquare: locator || jsonConfig.locator || '',
+  latitude: stationLat || 40.7128,
+  longitude: stationLon || -74.0060,
+  
+  // Display preferences
+  units: process.env.UNITS || jsonConfig.units || 'imperial',
+  timeFormat: process.env.TIME_FORMAT || jsonConfig.timeFormat || '12',
+  theme: process.env.THEME || jsonConfig.theme || 'dark',
+  layout: process.env.LAYOUT || jsonConfig.layout || 'modern',
+  
+  // DX target
+  dxLatitude: parseFloat(process.env.DX_LATITUDE) || jsonConfig.defaultDX?.lat || 51.5074,
+  dxLongitude: parseFloat(process.env.DX_LONGITUDE) || jsonConfig.defaultDX?.lon || -0.1278,
+  
+  // Feature toggles
+  showSatellites: process.env.SHOW_SATELLITES !== 'false' && jsonConfig.features?.showSatellites !== false,
+  showPota: process.env.SHOW_POTA !== 'false' && jsonConfig.features?.showPOTA !== false,
+  showDxPaths: process.env.SHOW_DX_PATHS !== 'false' && jsonConfig.features?.showDXPaths !== false,
+  showContests: jsonConfig.features?.showContests !== false,
+  showDXpeditions: jsonConfig.features?.showDXpeditions !== false,
+  
+  // DX Cluster settings
+  spotRetentionMinutes: parseInt(process.env.SPOT_RETENTION_MINUTES) || jsonConfig.dxCluster?.spotRetentionMinutes || 30,
+  dxClusterSource: jsonConfig.dxCluster?.source || 'auto',
+  
+  // API keys (don't expose to frontend)
+  _openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
+  _qrzUsername: process.env.QRZ_USERNAME || '',
+  _qrzPassword: process.env.QRZ_PASSWORD || ''
+};
+
+// Check if required config is missing
+const configMissing = CONFIG.callsign === 'N0CALL' || !CONFIG.gridSquare;
+if (configMissing) {
+  console.log('[Config] ⚠️  Station configuration incomplete!');
+  console.log('[Config] Copy .env.example to .env OR config.example.json to config.json');
+  console.log('[Config] Set your CALLSIGN and LOCATOR/grid square');
+  console.log('[Config] Settings popup will appear in browser');
+}
 
 // ITURHFProp service URL (optional - enables hybrid mode)
 const ITURHFPROP_URL = process.env.ITURHFPROP_URL || null;
 
 // Log configuration
+console.log(`[Config] Station: ${CONFIG.callsign} @ ${CONFIG.gridSquare || 'No grid'}`);
+console.log(`[Config] Location: ${CONFIG.latitude.toFixed(4)}, ${CONFIG.longitude.toFixed(4)}`);
+console.log(`[Config] Units: ${CONFIG.units}, Time: ${CONFIG.timeFormat}h`);
 if (ITURHFPROP_URL) {
   console.log(`[Propagation] Hybrid mode enabled - ITURHFProp service: ${ITURHFPROP_URL}`);
 } else {
@@ -2889,17 +3020,55 @@ app.get('/api/health', (req, res) => {
 // CONFIGURATION ENDPOINT
 // ============================================
 
+// Serve station configuration to frontend
+// This allows the frontend to get config from .env/config.json without exposing secrets
 app.get('/api/config', (req, res) => {
+  // Don't expose API keys/passwords - only public config
   res.json({
-    version: '3.0.0',
+    version: '3.10.0',
+    
+    // Station info (from .env or config.json)
+    callsign: CONFIG.callsign,
+    locator: CONFIG.gridSquare,
+    latitude: CONFIG.latitude,
+    longitude: CONFIG.longitude,
+    
+    // Display preferences
+    units: CONFIG.units,
+    timeFormat: CONFIG.timeFormat,
+    theme: CONFIG.theme,
+    layout: CONFIG.layout,
+    
+    // DX target
+    dxLatitude: CONFIG.dxLatitude,
+    dxLongitude: CONFIG.dxLongitude,
+    
+    // Feature toggles
+    showSatellites: CONFIG.showSatellites,
+    showPota: CONFIG.showPota,
+    showDxPaths: CONFIG.showDxPaths,
+    showContests: CONFIG.showContests,
+    showDXpeditions: CONFIG.showDXpeditions,
+    
+    // DX Cluster settings
+    spotRetentionMinutes: CONFIG.spotRetentionMinutes,
+    dxClusterSource: CONFIG.dxClusterSource,
+    
+    // Whether config is incomplete (show setup wizard)
+    configIncomplete: CONFIG.callsign === 'N0CALL' || !CONFIG.gridSquare,
+    
+    // Feature availability
     features: {
       spaceWeather: true,
       pota: true,
       sota: true,
       dxCluster: true,
-      satellites: false, // Coming soon
-      contests: false    // Coming soon
+      satellites: true,
+      contests: true,
+      dxpeditions: true
     },
+    
+    // Refresh intervals (ms)
     refreshIntervals: {
       spaceWeather: 300000,
       pota: 60000,
@@ -2944,9 +3113,19 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('║                                                       ║');
   console.log('╚═══════════════════════════════════════════════════════╝');
   console.log('');
-  console.log(`  🌐 Server running at http://localhost:${PORT}`);
+  const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  console.log(`  🌐 Server running at http://${displayHost}:${PORT}`);
+  if (HOST === '0.0.0.0') {
+    console.log(`  🔗 Network access: http://<your-ip>:${PORT}`);
+  }
   console.log('  📡 API proxy enabled for NOAA, POTA, SOTA, DX Cluster');
   console.log('  🖥️  Open your browser to start using OpenHamClock');
+  console.log('');
+  if (CONFIG.callsign !== 'N0CALL') {
+    console.log(`  📻 Station: ${CONFIG.callsign} @ ${CONFIG.gridSquare}`);
+  } else {
+    console.log('  ⚠️  Configure your station in .env file');
+  }
   console.log('');
   console.log('  In memory of Elwood Downey, WB0OEW');
   console.log('  73 de OpenHamClock contributors');

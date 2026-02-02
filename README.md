@@ -8,21 +8,96 @@ A modern, modular amateur radio dashboard built with React and Vite. This is the
 # Install dependencies
 npm install
 
-# Start development servers (need two terminals)
-# Terminal 1: Backend API server
-node server.js
+# Start the server (auto-creates .env on first run)
+npm start
 
-# Terminal 2: Frontend dev server with hot reload
-npm run dev
+# Edit .env with your callsign and grid locator
+# Then restart:
+npm start
 
 # Open http://localhost:3000
 ```
 
-For production:
+**That's it!** On first run, the server automatically creates a `.env` file from `.env.example`. Just edit it with your callsign and locator.
+
+For development with hot reload:
 ```bash
-npm run build
-npm start  # Serves from dist/ on port 3001
+# Terminal 1: Backend API server
+node server.js
+
+# Terminal 2: Frontend dev server
+npm run dev
 ```
+
+## ⚙️ Configuration
+
+### First Run (Automatic Setup)
+
+1. Run `npm start` - the server **automatically creates** `.env` from `.env.example`
+2. Edit `.env` with your station info:
+   ```bash
+   CALLSIGN=K0CJH
+   LOCATOR=EN10
+   ```
+3. Restart the server - you're ready to go!
+
+If you skip editing `.env`, the Settings panel will pop up in your browser asking for your callsign.
+
+### Configuration Priority
+
+Settings are loaded in this order (first one wins):
+1. **localStorage** - Changes made in the browser Settings panel
+2. **.env file** - Your station configuration (won't be overwritten by updates)
+3. **Defaults** - Built-in fallback values
+
+### .env Options
+
+```bash
+# Required - Your Station
+CALLSIGN=N0CALL
+LOCATOR=FN31
+
+# Server Settings
+PORT=3000
+HOST=localhost          # Use 0.0.0.0 for network access
+
+# Display Preferences
+UNITS=imperial          # or 'metric'
+TIME_FORMAT=12          # or '24'
+THEME=dark              # dark, light, legacy, retro
+LAYOUT=modern           # modern or classic
+
+# Optional Features
+SHOW_SATELLITES=true
+SHOW_POTA=true
+SHOW_DX_PATHS=true
+
+# Optional Services
+ITURHFPROP_URL=         # For advanced propagation
+DXSPIDER_PROXY_URL=     # Custom DX cluster proxy
+OPENWEATHER_API_KEY=    # For local weather
+```
+
+### Network Access
+
+To access OpenHamClock from other devices on your network:
+
+```bash
+# In .env:
+HOST=0.0.0.0
+PORT=3000
+```
+
+Then open `http://<your-computer-ip>:3000` from any device.
+
+### Configuration Files
+
+| File | Git Tracked | Purpose |
+|------|-------------|---------|
+| `.env.example` | ✅ Yes | Template with all options documented |
+| `.env` | ❌ No | Your config (auto-created, never overwritten) |
+| `config.example.json` | ✅ Yes | Legacy JSON config template |
+| `config.json` | ❌ No | Legacy JSON config (optional) |
 
 ## 📁 Project Structure
 
@@ -75,12 +150,19 @@ openhamclock-modular/
 
 ## 🎨 Themes
 
-Three themes available via Settings:
+Four themes available via Settings or `.env`:
 - **Dark** (default) - Modern dark theme with amber accents
 - **Light** - Light theme for daytime use
 - **Legacy** - Classic HamClock green-on-black terminal style
+- **Retro** - 90s Windows style with teal and silver
 
 Themes use CSS custom properties defined in `src/styles/main.css`.
+
+## 📐 Layouts
+
+Two layouts available:
+- **Modern** (default) - Responsive 3-column grid
+- **Classic** - Original HamClock-style with black background, large colored numbers, rainbow frequency bar
 
 ## 🔌 Components
 
@@ -142,6 +224,25 @@ The backend server provides:
 
 ## 🚀 Deployment
 
+### Raspberry Pi
+
+One-line install for Raspberry Pi:
+```bash
+curl -sSL https://raw.githubusercontent.com/k0cjh/openhamclock/main/scripts/setup-pi.sh | bash
+```
+
+Or with kiosk mode (auto-starts fullscreen on boot):
+```bash
+curl -sSL https://raw.githubusercontent.com/k0cjh/openhamclock/main/scripts/setup-pi.sh | bash -s -- --kiosk
+```
+
+After installation:
+```bash
+cd ~/openhamclock
+nano .env  # Edit your callsign and locator
+./restart.sh
+```
+
 ### Railway
 ```bash
 # railway.toml and railway.json are included
@@ -158,6 +259,34 @@ docker-compose up -d
 npm run build
 NODE_ENV=production node server.js
 ```
+
+## 🔄 Updating
+
+For local/Pi installations, use the update script:
+
+```bash
+cd ~/openhamclock
+./scripts/update.sh
+```
+
+The update script will:
+1. ✅ Back up your `.env` configuration
+2. ✅ Pull the latest code from GitHub
+3. ✅ Install any new dependencies
+4. ✅ Rebuild the frontend
+5. ✅ Preserve your settings
+
+Then restart the server:
+```bash
+sudo systemctl restart openhamclock
+# or
+./restart.sh
+```
+
+**Note:** If you installed from a zip file (not git clone), you'll need to:
+1. Back up your `.env` file
+2. Download the new zip
+3. Extract and restore your `.env`
 
 ## 🤝 Contributing
 

@@ -9,6 +9,8 @@ export {
   loadConfig,
   saveConfig,
   applyTheme,
+  fetchServerConfig,
+  isConfigIncomplete,
   MAP_STYLES
 } from './config.js';
 
