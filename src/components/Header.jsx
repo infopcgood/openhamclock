@@ -42,7 +42,7 @@ export const Header = ({
         >
           {config.callsign}
         </span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v3.7.0</span>
+        {config.version && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>}
       </div>
       
       {/* UTC Clock */}
@@ -78,10 +78,11 @@ export const Header = ({
       {/* Weather & Solar Stats */}
       <div style={{ display: 'flex', gap: '12px', fontSize: '13px', fontFamily: 'JetBrains Mono, Consolas, monospace', whiteSpace: 'nowrap', flexShrink: 0 }}>
         {localWeather?.data && (() => {
-          const t = localWeather.data.temp;
-          const unit = localWeather.data.tempUnit || 'F';
-          const tempF = unit === 'C' ? Math.round(t * 9/5 + 32) : t;
-          const tempC = unit === 'F' ? Math.round((t - 32) * 5/9) : t;
+          // Always compute both F and C from the raw Celsius source
+          // This avoids ±1° rounding drift when toggling units
+          const rawC = localWeather.data.rawTempC;
+          const tempF = Math.round(rawC * 9 / 5 + 32);
+          const tempC = Math.round(rawC);
           const windLabel = localWeather.data.windUnit || 'mph';
           return (
           <div title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${windLabel}`}>
