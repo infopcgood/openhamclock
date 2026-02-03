@@ -151,10 +151,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
       });
       
       console.log(`📍 Creating marker for ${quakeId}: M${mag.toFixed(1)} at [lat=${lat}, lon=${lon}] - ${props.place}`);
-      // CRITICAL FIX: This Leaflet setup requires [longitude, latitude] format
-      // Even though standard Leaflet docs say [lat, lng], this specific map configuration
-      // expects [lon, lat] to plot correctly. Verified by testing with known coordinates.
-      const circle = L.marker([lon, lat], { 
+      // Use standard Leaflet [latitude, longitude] format (same as all other markers in this app)
+      const markerCoords = [lat, lon];
+      console.log(`   → Calling L.marker([${markerCoords[0]}, ${markerCoords[1]}]) - Should be [latitude, longitude]`);
+      const circle = L.marker(markerCoords, { 
         icon, 
         opacity,
         zIndexOffset: 10000 // Ensure markers appear on top
@@ -187,8 +187,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
           }
         }, 10);
         
-        // Create pulsing ring effect - also use [lon, lat] format
-        const pulseRing = L.circle([lon, lat], {
+        // Create pulsing ring effect - use same [lat, lon] format
+        const pulseRing = L.circle([lat, lon], {
           radius: 50000, // 50km radius in meters
           fillColor: color,
           fillOpacity: 0,
