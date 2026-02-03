@@ -108,19 +108,30 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         className: 'earthquake-marker'
       });
 
+      // Add to map first
+      circle.addTo(map);
+
       // Add pulsing animation for new earthquakes ONLY
       if (isNew) {
-        // Add animation class temporarily
-        circle._path.classList.add('earthquake-pulse-new');
-        
-        // Remove animation class after it completes (0.6s)
+        // Wait for DOM element to be created, then add animation class
         setTimeout(() => {
           try {
             if (circle._path) {
-              circle._path.classList.remove('earthquake-pulse-new');
+              circle._path.classList.add('earthquake-pulse-new');
+              
+              // Remove animation class after it completes (0.6s)
+              setTimeout(() => {
+                try {
+                  if (circle._path) {
+                    circle._path.classList.remove('earthquake-pulse-new');
+                  }
+                } catch (e) {}
+              }, 600);
             }
-          } catch (e) {}
-        }, 600);
+          } catch (e) {
+            console.warn('Could not animate earthquake marker:', e);
+          }
+        }, 10);
         
         // Create pulsing ring effect
         const pulseRing = L.circle([lat, lon], {
@@ -170,7 +181,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         </div>
       `);
 
-      circle.addTo(map);
+      // Already added to map above (before animation)
       newMarkers.push(circle);
     });
 
