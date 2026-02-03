@@ -42,34 +42,45 @@ function generateSimulatedStrikes(count = 50) {
     { lat: 13.7, lon: 100.5, name: 'Bangkok' }, // Bangkok
   ];
   
+  // Use a seeded random to generate consistent positions
+  const seed = Math.floor(now / 60000); // Changes every minute
+  
   for (let i = 0; i < count; i++) {
-    // Pick a random storm center
-    const center = stormCenters[Math.floor(Math.random() * stormCenters.length)];
+    // Use seeded random for consistent results
+    const seededRandom = (i + seed) * 9301 + 49297; // Simple LCG
+    const r1 = (seededRandom % 233280) / 233280.0;
+    const r2 = ((seededRandom * 7) % 233280) / 233280.0;
+    const r3 = ((seededRandom * 13) % 233280) / 233280.0;
+    const r4 = ((seededRandom * 17) % 233280) / 233280.0;
     
-    // Create strike near the center (within ~100km radius)
-    const latOffset = (Math.random() - 0.5) * 2.0; // ~220 km spread
-    const lonOffset = (Math.random() - 0.5) * 2.0;
+    // Pick a storm center based on seeded random
+    const center = stormCenters[Math.floor(r1 * stormCenters.length)];
     
-    // Random timestamp within last 30 minutes
-    const ageMs = Math.random() * 30 * 60 * 1000;
+    // Create strike near the center with consistent offset
+    const latOffset = (r2 - 0.5) * 2.0; // ~220 km spread
+    const lonOffset = (r3 - 0.5) * 2.0;
+    
+    // Age within last 30 minutes
+    const ageMs = r4 * 30 * 60 * 1000;
     const timestamp = now - ageMs;
     
-    // Random intensity (current in kA)
-    const intensity = Math.random() * 200 - 50; // -50 to +150 kA
-    const polarity = intensity >= 0 ? 'positive' : 'negative';
+    // Calculate exact position (use rounded for stability)
+    const exactLat = center.lat + latOffset;
+    const exactLon = center.lon + lonOffset;
+    const roundedLat = Math.round(exactLat * 10) / 10;
+    const roundedLon = Math.round(exactLon * 10) / 10;
+    const roundedTime = Math.floor(timestamp / 60000) * 60000;
     
-    // Create stable ID based on rounded location and minute
-    // This way, strikes in the same general area/time get the same ID
-    const roundedLat = Math.round((center.lat + latOffset) * 10) / 10;
-    const roundedLon = Math.round((center.lon + lonOffset) * 10) / 10;
-    const roundedTime = Math.floor(timestamp / 60000) * 60000; // Round to minute
+    // Use seeded random for intensity too
+    const intensity = (r2 * 200) - 50; // -50 to +150 kA
+    const polarity = intensity >= 0 ? 'positive' : 'negative';
     
     strikes.push({
       id: `strike_${roundedTime}_${roundedLat}_${roundedLon}`,
-      lat: center.lat + latOffset,
-      lon: center.lon + lonOffset,
+      lat: roundedLat,  // Use rounded position for consistency
+      lon: roundedLon,  // Use rounded position for consistency
       timestamp,
-      age: ageMs / 1000, // seconds
+      age: ageMs / 1000,
       intensity: Math.abs(intensity),
       polarity,
       region: center.name

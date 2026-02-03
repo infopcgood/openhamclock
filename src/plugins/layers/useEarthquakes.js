@@ -12,12 +12,12 @@ import { useState, useEffect, useRef } from 'react';
 export const metadata = {
   id: 'earthquakes',
   name: 'Earthquakes',
-  description: 'Live USGS earthquake data (M2.5+ from last 24 hours) with animated detection',
+  description: 'Live USGS earthquake data (all earthquakes from last hour) with animated detection',
   icon: '🌋',
   category: 'geology',
   defaultEnabled: false,
   defaultOpacity: 0.9,
-  version: '1.1.0'
+  version: '1.2.0'
 };
 
 export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
@@ -32,7 +32,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
     const fetchEarthquakes = async () => {
       try {
-        // USGS GeoJSON feed - M2.5+ from last day
+        // USGS GeoJSON feed - All earthquakes from last hour
         const response = await fetch(
           //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson'
           'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
