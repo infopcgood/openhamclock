@@ -460,7 +460,7 @@ const App = () => {
                 </div>
                 <div style={{ marginBottom: '6px' }}>
                   <div style={{ color: '#888' }}>Kp</div>
-                  <div style={{ color: '#00ff00', fontSize: '16px', fontWeight: '700' }}>{spaceWeather?.data?.kIndex ?? '--'}</div>
+                  <div style={{ color: '#00ff00', fontSize: '16px', fontWeight: '700' }}>{solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}</div>
                 </div>
                 <div style={{ marginBottom: '6px' }}>
                   <div style={{ color: '#888' }}>Bz</div>
@@ -596,6 +596,7 @@ const App = () => {
           localDate={localDate}
           localWeather={localWeather}
           spaceWeather={spaceWeather}
+          solarIndices={solarIndices}
           use12Hour={use12Hour}
           onTimeFormatToggle={handleTimeFormatToggle}
           onSettingsClick={() => setShowSettings(true)}
