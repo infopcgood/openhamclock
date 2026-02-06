@@ -72,14 +72,14 @@ function getSNRColor(snr) {
   return '#00cc00';                     // Dark green
 }
 
-// Get line weight based on SNR (thicker lines for better visibility)
+// Get line weight based on SNR (doubled for better visibility)
 function getLineWeight(snr) {
-  if (snr === null || snr === undefined) return 2;
-  if (snr < -20) return 2;
-  if (snr < -10) return 2.5;
-  if (snr < 0) return 3;
-  if (snr < 5) return 3.5;
-  return 4;
+  if (snr === null || snr === undefined) return 4;
+  if (snr < -20) return 4;
+  if (snr < -10) return 5;
+  if (snr < 0) return 6;
+  if (snr < 5) return 7;
+  return 8;
 }
 
 // Calculate great circle path between two points
@@ -909,7 +909,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       });
       console.log(`[WSPR Grid] No matches for ${gridFilter}. Available grids in data:`, Array.from(availableGrids).join(', '));
     }
-    const limitedData = filteredData.slice(0, 500);
+    const limitedData = filteredData.slice(0, 10000); // Show up to 10k spots (backend limit)
     
     // Find best DX paths (longest distance, good SNR)
     const bestPaths = limitedData
@@ -961,18 +961,33 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
 
       const snrStr = spot.snr !== null ? `${spot.snr} dB` : 'N/A';
       const ageStr = spot.age < 60 ? `${spot.age} min ago` : `${Math.floor(spot.age / 60)}h ago`;
+      const powerStr = spot.power ? `${spot.power}W` : 'N/A';
+      const powerDbmStr = spot.powerDbm ? `${spot.powerDbm} dBm` : '';
+      const distanceStr = spot.distance ? `${spot.distance} km` : 'N/A';
+      const kPerWStr = spot.kPerW ? `${spot.kPerW.toLocaleString()} k/W` : 'N/A';
+      const txAzStr = spot.senderAz !== null ? `${spot.senderAz}°` : 'N/A';
+      const rxAzStr = spot.receiverAz !== null ? `${spot.receiverAz}°` : 'N/A';
+      const spotQStr = spot.snr && spot.distance ? Math.round(spot.distance / Math.pow(10, spot.snr / 10)) : null;
       
       path.bindPopup(`
-        <div style="font-family: 'JetBrains Mono', monospace; min-width: 220px;">
-          <div style="font-size: 14px; font-weight: bold; color: ${getSNRColor(spot.snr)}; margin-bottom: 6px;">
-            ${isBestPath ? '⭐ Best DX Path' : '📡 WSPR Spot'}
+        <div style="font-family: 'JetBrains Mono', monospace; min-width: 240px;">
+          <div style="font-size: 13px; font-weight: bold; color: ${getSNRColor(spot.snr)}; margin-bottom: 8px; text-align: center;">
+            ${spot.sender} ⇢ ${spot.receiver}
           </div>
-          <table style="font-size: 11px; width: 100%;">
-            <tr><td><b>TX:</b></td><td>${spot.sender} (${spot.senderGrid})</td></tr>
-            <tr><td><b>RX:</b></td><td>${spot.receiver} (${spot.receiverGrid})</td></tr>
-            <tr><td><b>Freq:</b></td><td>${spot.freqMHz} MHz (${spot.band})</td></tr>
-            <tr><td><b>SNR:</b></td><td style="color: ${getSNRColor(spot.snr)}; font-weight: bold;">${snrStr}</td></tr>
-            <tr><td><b>Time:</b></td><td>${ageStr}</td></tr>
+          <div style="font-size: 10px; opacity: 0.7; text-align: center; margin-bottom: 8px;">
+            ${ageStr}
+          </div>
+          <table style="font-size: 11px; width: 100%; line-height: 1.6;">
+            <tr><td style="opacity: 0.7;">Freq:</td><td><b>${spot.freqMHz} MHz</b></td></tr>
+            <tr><td style="opacity: 0.7;">Power:</td><td><b>${powerStr}</b> ${powerDbmStr}</td></tr>
+            <tr><td style="opacity: 0.7;">SNR:</td><td style="color: ${getSNRColor(spot.snr)}; font-weight: bold;">${snrStr}</td></tr>
+            ${spotQStr ? `<tr><td style="opacity: 0.7;">Quality:</td><td><b>${spotQStr} Q</b></td></tr>` : ''}
+            <tr><td colspan="2" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);"></td></tr>
+            <tr><td style="opacity: 0.7;">Distance:</td><td><b>${distanceStr}</b></td></tr>
+            <tr><td style="opacity: 0.7;">Efficiency:</td><td><b>${kPerWStr}</b></td></tr>
+            <tr><td colspan="2" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);"></td></tr>
+            <tr><td style="opacity: 0.7;">Az TX:</td><td><b>${txAzStr}</b></td></tr>
+            <tr><td style="opacity: 0.7;">Az RX:</td><td><b>${rxAzStr}</b></td></tr>
           </table>
         </div>
       `);
@@ -980,19 +995,70 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       path.addTo(map);
       newPaths.push(path);
 
-      // Add markers
+      // Add markers with detailed tooltips
       const txKey = `${spot.sender}-${spot.senderGrid}`;
       if (!txStations.has(txKey)) {
         txStations.add(txKey);
         const txMarker = L.circleMarker([sLat, sLon], {
-          radius: 4,
+          radius: 5,
           fillColor: '#ff6600',
           color: '#ffffff',
-          weight: 1,
-          fillOpacity: pathOpacity * 0.8,
+          weight: 1.5,
+          fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity
         });
-        txMarker.bindTooltip(`TX: ${spot.sender}`, { permanent: false, direction: 'top' });
+        // Build detailed tooltip for TX
+        let txDetails = `
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 220px;">
+            <div style="font-weight: bold; color: #ff6600; margin-bottom: 6px; font-size: 12px;">📡 TX Station</div>
+            <div style="margin-bottom: 6px;"><b style="font-size: 13px;">${spot.sender}</b> ⇢ <b style="font-size: 13px;">${spot.receiver}</b></div>
+            <div style="opacity: 0.7; margin-bottom: 8px;">Grid: ${spot.senderGrid}</div>
+        `;
+        
+        // Add frequency and band
+        if (spot.freqMHz) {
+          txDetails += `<div><b>${spot.freqMHz} MHz</b> (${spot.band || 'Unknown'})</div>`;
+        }
+        
+        // Add power if available
+        if (spot.power !== null && spot.power !== undefined) {
+          const powerDbm = spot.powerDbm !== null ? ` (${spot.powerDbm.toFixed(1)} dBm)` : '';
+          txDetails += `<div>Power: <b>${spot.power} W</b>${powerDbm}</div>`;
+        }
+        
+        // Add SNR
+        if (spot.snr !== null && spot.snr !== undefined) {
+          const snrColor = spot.snr > 0 ? '#00cc00' : spot.snr > -10 ? '#ffaa00' : '#ff6600';
+          txDetails += `<div>SNR: <b style="color: ${snrColor};">${spot.snr} dB</b></div>`;
+        }
+        
+        // Add distance and efficiency
+        if (spot.distance) {
+          txDetails += `<div>Distance: <b>${Math.round(spot.distance)} km</b></div>`;
+          if (spot.kPerW) {
+            txDetails += `<div>Efficiency: <b>${Math.round(spot.kPerW)} km/W</b></div>`;
+          }
+        }
+        
+        // Add azimuth
+        if (spot.senderAz !== null) {
+          txDetails += `<div>Azimuth: <b>${spot.senderAz}°</b></div>`;
+        }
+        
+        // Add drift if available
+        if (spot.drift !== null && spot.drift !== undefined) {
+          txDetails += `<div>Drift: ${spot.drift} Hz</div>`;
+        }
+        
+        // Add timestamp
+        if (spot.timestamp) {
+          const date = new Date(spot.timestamp);
+          const timeStr = date.toLocaleString();
+          txDetails += `<div style="margin-top: 6px; font-size: 10px; opacity: 0.6;">${timeStr}</div>`;
+        }
+        
+        txDetails += `</div>`;
+        txMarker.bindPopup(txDetails);
         txMarker.addTo(map);
         newMarkers.push(txMarker);
       }
@@ -1001,14 +1067,65 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       if (!rxStations.has(rxKey)) {
         rxStations.add(rxKey);
         const rxMarker = L.circleMarker([rLat, rLon], {
-          radius: 4,
+          radius: 5,
           fillColor: '#0088ff',
           color: '#ffffff',
-          weight: 1,
-          fillOpacity: pathOpacity * 0.8,
+          weight: 1.5,
+          fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity
         });
-        rxMarker.bindTooltip(`RX: ${spot.receiver}`, { permanent: false, direction: 'top' });
+        // Build detailed tooltip for RX
+        let rxDetails = `
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 220px;">
+            <div style="font-weight: bold; color: #0088ff; margin-bottom: 6px; font-size: 12px;">📻 RX Station</div>
+            <div style="margin-bottom: 6px;"><b style="font-size: 13px;">${spot.sender}</b> ⇢ <b style="font-size: 13px;">${spot.receiver}</b></div>
+            <div style="opacity: 0.7; margin-bottom: 8px;">Grid: ${spot.receiverGrid}</div>
+        `;
+        
+        // Add frequency and band
+        if (spot.freqMHz) {
+          rxDetails += `<div><b>${spot.freqMHz} MHz</b> (${spot.band || 'Unknown'})</div>`;
+        }
+        
+        // Add power if available
+        if (spot.power !== null && spot.power !== undefined) {
+          const powerDbm = spot.powerDbm !== null ? ` (${spot.powerDbm.toFixed(1)} dBm)` : '';
+          rxDetails += `<div>Power: <b>${spot.power} W</b>${powerDbm}</div>`;
+        }
+        
+        // Add SNR
+        if (spot.snr !== null && spot.snr !== undefined) {
+          const snrColor = spot.snr > 0 ? '#00cc00' : spot.snr > -10 ? '#ffaa00' : '#ff6600';
+          rxDetails += `<div>SNR: <b style="color: ${snrColor};">${spot.snr} dB</b></div>`;
+        }
+        
+        // Add distance and efficiency
+        if (spot.distance) {
+          rxDetails += `<div>Distance: <b>${Math.round(spot.distance)} km</b></div>`;
+          if (spot.kPerW) {
+            rxDetails += `<div>Efficiency: <b>${Math.round(spot.kPerW)} km/W</b></div>`;
+          }
+        }
+        
+        // Add azimuth
+        if (spot.receiverAz !== null) {
+          rxDetails += `<div>Azimuth: <b>${spot.receiverAz}°</b></div>`;
+        }
+        
+        // Add drift if available
+        if (spot.drift !== null && spot.drift !== undefined) {
+          rxDetails += `<div>Drift: ${spot.drift} Hz</div>`;
+        }
+        
+        // Add timestamp
+        if (spot.timestamp) {
+          const date = new Date(spot.timestamp);
+          const timeStr = date.toLocaleString();
+          rxDetails += `<div style="margin-top: 6px; font-size: 10px; opacity: 0.6;">${timeStr}</div>`;
+        }
+        
+        rxDetails += `</div>`;
+        rxMarker.bindPopup(rxDetails);
         rxMarker.addTo(map);
         newMarkers.push(rxMarker);
       }
@@ -1215,8 +1332,6 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     
     Object.values(uniquePoints).forEach(point => {
       const intensity = Math.min(point.count / 10, 1); // Normalize to 0-1
-      const radius = 20 + (intensity * 30); // 20-50 pixels
-      const fillOpacity = 0.3 + (intensity * 0.4); // 0.3-0.7
       
       // Color based on activity level
       let color;
@@ -1225,26 +1340,43 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       else if (intensity > 0.3) color = '#ffaa00'; // Yellow - warm
       else color = '#00aaff'; // Blue - cool
       
-      const circle = L.circle([point.lat, point.lon], {
-        radius: radius * 50000, // Convert to meters for Leaflet
-        fillColor: color,
-        fillOpacity: fillOpacity * heatmapOpacity,
-        color: color,
-        weight: 0,
-        opacity: 0
-      });
+      // Create cloud-like effect with multiple overlapping circles
+      const baseRadius = 40 + (intensity * 80); // 40-120 pixels
+      const numLayers = 3; // Multiple circles for cloud effect
       
-      circle.bindPopup(`
-        <div style="font-family: 'JetBrains Mono', monospace;">
-          <b>🔥 Activity Hot Spot</b><br>
-          Stations: ${point.count}<br>
-          Lat: ${point.lat.toFixed(2)}<br>
-          Lon: ${point.lon.toFixed(2)}
-        </div>
-      `);
-      
-      circle.addTo(map);
-      heatCircles.push(circle);
+      for (let i = 0; i < numLayers; i++) {
+        const layerRadius = baseRadius * (1.5 - i * 0.3); // Decreasing sizes
+        const layerOpacity = (0.15 + intensity * 0.25) * (1 - i * 0.3) * heatmapOpacity; // Fade outer layers
+        
+        // Slightly offset each layer for organic cloud look
+        const offsetLat = point.lat + (Math.random() - 0.5) * 0.1;
+        const offsetLon = point.lon + (Math.random() - 0.5) * 0.1;
+        
+        const circle = L.circle([offsetLat, offsetLon], {
+          radius: layerRadius * 50000, // Convert to meters for Leaflet
+          fillColor: color,
+          fillOpacity: layerOpacity,
+          color: color,
+          weight: 0,
+          opacity: 0,
+          className: 'wspr-heatmap-cloud' // For CSS blur
+        });
+        
+        // Only add popup to the first (largest) circle
+        if (i === 0) {
+          circle.bindPopup(`
+            <div style="font-family: 'JetBrains Mono', monospace;">
+              <b>🔥 Activity Hot Spot</b><br>
+              Stations: ${point.count}<br>
+              Lat: ${point.lat.toFixed(2)}<br>
+              Lon: ${point.lon.toFixed(2)}
+            </div>
+          `);
+        }
+        
+        circle.addTo(map);
+        heatCircles.push(circle);
+      }
     });
     
     // Store as layer group
