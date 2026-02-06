@@ -1394,7 +1394,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
         } catch (e) {}
       });
     };
-  }, [enabled, showHeatmap, wsprData, map, heatmapOpacity, snrThreshold, heatmapLayer, filterByGrid, gridFilter]);
+  }, [enabled, showHeatmap, wsprData, map, heatmapOpacity, snrThreshold, callsign, filterByGrid, gridFilter]);
 
   // Cleanup controls on disable - FIX: properly remove all controls and layers
   useEffect(() => {
